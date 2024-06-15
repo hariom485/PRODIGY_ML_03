@@ -1,0 +1,49 @@
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <vector>
+
+int main() {
+    // Load and preprocess images
+    cv::Mat catImage = cv::imread("cat.jpg", cv::IMREAD_GRAYSCALE);
+    cv::Mat dogImage = cv::imread("dog.jpg", cv::IMREAD_GRAYSCALE);
+
+    // Extract features (for simplicity, consider using pixel intensities as features)
+    std::vector<float> catFeatures, dogFeatures;
+    for (int i = 0; i < catImage.rows; ++i) {
+        for (int j = 0; j < catImage.cols; ++j) {
+            catFeatures.push_back(static_cast<float>(catImage.at<uchar>(i, j)));
+            dogFeatures.push_back(static_cast<float>(dogImage.at<uchar>(i, j)));
+        }
+    }
+
+    // Create labels (0 for cats, 1 for dogs)
+    std::vector<int> labels = {0, 1};
+
+    // Train the SVM model
+    cv::Ptr<cv::ml::SVM> svm = cv::ml::SVM::create();
+    svm->setType(cv::ml::SVM::C_SVC);
+    svm->setKernel(cv::ml::SVM::LINEAR);
+    svm->setTermCriteria(cv::TermCriteria(cv::TermCriteria::MAX_ITER, 100, 1e-6));
+
+    cv::Mat trainingData = cv::Mat(catFeatures.size() + dogFeatures.size(), 1, CV_32FC1);
+    for (size_t i = 0; i < catFeatures.size(); ++i) {
+        trainingData.at<float>(i, 0) = catFeatures[i];
+    }
+    for (size_t i = 0; i < dogFeatures.size(); ++i) {
+        trainingData.at<float>(i + catFeatures.size(), 0) = dogFeatures[i];
+    }
+
+    cv::Mat labelsMat(labels.size(), 1, CV_32SC1, labels.data());
+    svm->train(trainingData, cv::ml::ROW_SAMPLE, labelsMat);
+
+    // Test the model (you'll need a separate testing set for real evaluation)
+    cv::Mat testSample = cv::Mat::zeros(1, 1, CV_32FC1);
+    float catPrediction = svm->predict(testSample); // Expected 0 (cat)
+    testSample.at<float>(0, 0) = 255.0; // Assume intensity 255 for a dog image pixel
+    float dogPrediction = svm->predict(testSample); // Expected 1 (dog)
+
+    std::cout << "Cat prediction: " << catPrediction << std::endl;
+    std::cout << "Dog prediction: " << dogPrediction << std::endl;
+
+    return 0;
+}
